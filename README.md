@@ -1,7 +1,16 @@
-# Startup Music
+# 🎵 Startup Music Tone  
+
 ---
-Startup Music is a mod that plays any music at the startup of the game (while the game loading screen).
+**Startup Music Tone** is a mod that plays any music at the startup of the game (while the game loading screen).
+
 ---
-## How to use
-To use this mod, launch the game once and close it. Then go to config folder in the modpack's folder. Inside the config folder, you might see "music" folder. If you don't see it, create the folder. Put the music files in the "music" folder. The music file must be in .ogg format.
---
+## 📥 Installation
+1. Download the mod from [CurseForge](https://www.curseforge.com/minecraft/mc-mods/startup-music)
+2. Make sure you have **Forge** installed.
+3. Drop the `.jar` file that you downloaded from CurseForge into your `/mods` folder.
+4. Place your desired `.ogg` file in the `config/music/` folder.
+---
+## ⚙️ How it Works
+This mod hooks into the game's early bootstrap phase to initialize the OpenAL audio system before the vanilla music engine starts. 
+Then it selects a random music from the folder `./config/music/` and plays it during the bootstrap.  
+
