@@ -1,7 +1,5 @@
 package dev.merosssany.musicaltune.event;
 
-import net.minecraftforge.eventbus.api.Event;
-
 public class Pulse {
     private boolean Start;
     private final long breakTime;

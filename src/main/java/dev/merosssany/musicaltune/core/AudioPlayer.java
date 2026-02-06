@@ -3,7 +3,6 @@ package dev.merosssany.musicaltune.core;
 import static org.lwjgl.openal.AL10.*;
 
 import java.nio.IntBuffer;
-import dev.merosssany.musicaltune.event.AudioStopPlayingListener;
 import dev.merosssany.musicaltune.event.Pulse;
 import net.minecraftforge.common.MinecraftForge;
 import org.lwjgl.openal.AL;
@@ -31,39 +30,8 @@ public class AudioPlayer {
 	private float fadeDurationSeconds;
 	private float initialFadeGain;
 	private static final Logger logger = LogUtils.getLogger();
-	private final Pulse pulse = new Pulse(250,this::checkForAudioStatus);
-	private ArrayList<AudioStopPlayingListener> listeners = new ArrayList<>(); // List to hold listeners
 
-	// Method to add listeners
-	public void addAudioPlaybackListener(AudioStopPlayingListener listener) {
-		if (listener != null && !listeners.contains(listener)) {
-			listeners.add(listener);
-		}
-	}
-
-	// Method to remove listeners
-	public void removeAudioPlaybackListener(AudioStopPlayingListener listener) {
-		listeners.remove(listener);
-	}
-
-	// Update handlePlaybackCompletion to notify listeners
-	private void handlePlaybackCompletion() {
-		// ... cleanup ...
-
-		// Notify all registered listeners
-		for (AudioStopPlayingListener listener : listeners) {
-			try {
-				listener.onAudioStopped(this); // Call the listener's method, pass 'this' or relevant data
-			} catch (Exception e) {
-				logger.error("Error notifying audio playback listener", e);
-				// Handle exceptions from listeners if necessary
-			}
-		}
-		// No need to clear the list here, listeners stay registered
-	}
-
-
-	public void play(AudioData audioData) {
+    public void play(AudioData audioData) {
 		if (initialized) {
 			logger.info("Playing music...");
 			stop();
@@ -82,24 +50,9 @@ public class AudioPlayer {
 			alBufferData(bufferId, format, audioData.samples, audioData.sampleRate);
 			alSourcei(sourceId, AL_BUFFER, bufferId);
 			alSourcePlay(sourceId);
-			pulse.start();
 		}
 	}
-
-	private void checkForAudioStatus() {
-		if (isStoped()) {
-			for (AudioStopPlayingListener listener : listeners) {
-				try {
-					listener.onAudioStopped(this); // Call the listener's method, pass 'this' or relevant data
-				} catch (Exception e) {
-					logger.error("Error notifying audio playback listener", e);
-					// Handle exceptions from listeners if necessary
-				}
-			}
-			pulse.stop();
-		}
-	}
-
+ 
 	public void cleanup() {
 		if (initialized) {
 			stop();
