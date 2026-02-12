@@ -1,4 +1,4 @@
-package dev.merosssany.musicaltune.core;
+package dev.merosssany.musicaltone.core;
 
 import java.io.File;
 import java.io.IOException;
@@ -19,7 +19,7 @@ public class FileManager {
 	}
 	
 	public static void createFolder(String folderName, Path path) throws IOException {
-		logger.debug("Creating folder "+folderName+" at path: "+path);
+        logger.debug("Creating folder {} at path: {}", folderName, path);
 		Files.createDirectories(path.resolve(folderName));
 	}
 	
@@ -31,7 +31,7 @@ public class FileManager {
 	}
 	
 	public static File getFile(String path) throws IOException {
-		Path game = getGameDir();
+		Path game = getMusicFolder();
 		File file = Path.of(game.toString(), path).toFile();
 		if (file.exists()) return file;
 		

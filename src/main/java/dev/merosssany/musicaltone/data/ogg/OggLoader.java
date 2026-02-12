@@ -1,4 +1,4 @@
-package dev.merosssany.musicaltune.init;
+package dev.merosssany.musicaltone.data.ogg;
 
 import java.io.File;
 import java.nio.IntBuffer;
@@ -11,32 +11,23 @@ import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
 public class OggLoader {
-	public static class AudioData {
-	    public final ShortBuffer samples;
-	    public final int channels;
-	    public final int sampleRate;
-
-	    public AudioData(ShortBuffer samples, int channels, int sampleRate) {
-	        this.samples = samples;
-	        this.channels = channels;
-	        this.sampleRate = sampleRate;
-	    }
-	    
-	    public float getDurationInSeconds() {
-	        return (float) samples.capacity() / (sampleRate * channels);
-	    }
-	    
-	    public ShortBuffer data() {
-	        return samples;
-	    }
-	    
-	    public int format() {
-	        if (channels == 1) return AL10.AL_FORMAT_MONO16;
-	        if (channels == 2) return AL10.AL_FORMAT_STEREO16;
-	        throw new IllegalStateException("Unsupported channel count: " + channels);
-	    }
-
-	}
+    public record AudioData(ShortBuffer samples, int channels, int sampleRate) {
+        
+        public float getDurationInSeconds() {
+            return (float) samples.capacity() / (sampleRate * channels);
+        }
+        
+        public ShortBuffer data() {
+            return samples;
+        }
+        
+        public int format() {
+            if (channels == 1) return AL10.AL_FORMAT_MONO16;
+            if (channels == 2) return AL10.AL_FORMAT_STEREO16;
+            throw new IllegalStateException("Unsupported channel count: " + channels);
+        }
+        
+    }
 	
 	public static AudioData loadOgg(String path) throws Exception {
 	    File file = new File(path);
