@@ -8,7 +8,7 @@
 1. Download the mod from [CurseForge](https://www.curseforge.com/minecraft/mc-mods/startup-music)
 2. Make sure you have **Forge** installed.
 3. Drop the `.jar` file that you downloaded from CurseForge into your `/mods` folder.
-4. Place your desired `.ogg` file in the `config/music/` folder.
+4. Place your desired `.ogg` or `.mp3` file in the `config/music/` folder.
 ---
 ## ⚙️ How it Works
 This mod hooks into the game's early bootstrap phase to initialize the OpenAL audio system before the vanilla music engine starts. 

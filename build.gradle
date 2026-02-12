@@ -3,6 +3,7 @@ plugins {
     id 'idea'
     id 'maven-publish'
     id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
 version = mod_version
@@ -10,6 +11,11 @@ group = mod_group_id
 
 base {
     archivesName = mod_id
+}
+
+configurations {
+    shade
+    implementation.extendsFrom shade
 }
 
 // Mojang ships Java 17 to end users in 1.18+, so your mod should target Java 17.
@@ -134,6 +140,11 @@ dependencies {
     
     implementation "org.lwjgl:lwjgl-openal:3.2.3"
     implementation "org.lwjgl:lwjgl-stb:3.2.3"
+    implementation 'javazoom:jlayer:1.0.1'
+
+    minecraftLibrary 'javazoom:jlayer:1.0.1'
+
+    shade 'javazoom:jlayer:1.0.1'
 
     // Real mod deobf dependency examples - these get remapped to your current mappings
     // compileOnly fg.deobf("mezz.jei:jei-${mc_version}:${jei_version}:api") // Adds JEI API as a compile dependency
@@ -208,3 +219,22 @@ publishing {
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
 }
+
+shadowJar {
+    configurations = [project.configurations.shade]
+
+    archiveClassifier.set('all')
+
+//    relocate 'javazoom.jl', 'dev.merosssany.musicaltone.libs.jl'
+
+    // This is important for Forge remapping
+    finalizedBy 'reobfShadowJar'
+    // Relocate JLayer to avoid conflicts
+}
+
+reobf {
+    shadowJar {}
+}
+
+assemble.dependsOn shadowJar
+tasks.build.dependsOn shadowJar

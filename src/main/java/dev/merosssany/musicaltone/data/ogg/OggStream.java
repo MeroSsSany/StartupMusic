@@ -1,5 +1,6 @@
 package dev.merosssany.musicaltone.data.ogg;
 
+import dev.merosssany.musicaltone.data.AudioStream;
 import org.lwjgl.openal.AL10;
 import org.lwjgl.stb.STBVorbis;
 import org.lwjgl.stb.STBVorbisInfo;
@@ -10,7 +11,7 @@ import java.io.File;
 import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
 
-public class OggStream implements AutoCloseable {
+public class OggStream implements AutoCloseable, AudioStream {
     private final long decoder;
     private final int channels;
     private final int sampleRate;

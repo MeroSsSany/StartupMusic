@@ -4,8 +4,12 @@ import static org.lwjgl.openal.AL10.*;
 import static org.lwjgl.openal.ALC10.alcCloseDevice;
 import static org.lwjgl.openal.ALC10.alcDestroyContext;
 
+import java.io.File;
+import java.io.IOException;
 import java.nio.IntBuffer;
 
+import dev.merosssany.musicaltone.data.AudioReader;
+import dev.merosssany.musicaltone.data.AudioStream;
 import dev.merosssany.musicaltone.data.ogg.OggStream;
 import org.lwjgl.openal.AL;
 import org.lwjgl.openal.AL10;
@@ -38,7 +42,7 @@ public class AudioPlayer {
     
     private int[] buffers = new int[BUFFER_COUNT];
     private ShortBuffer streamBuffer;
-    private OggStream currentStream;
+    private AudioStream currentStream;
     private boolean streaming;
     
     public void play(AudioData audioData) {
@@ -63,10 +67,10 @@ public class AudioPlayer {
 		}
 	}
     
-    public void startStream(String path) {
+    public void startStream(File path) throws IOException {
         stop();
         
-        currentStream = new OggStream(path);
+        currentStream = AudioReader.getStreamFromFile(path);
         
         sourceId = AL10.alGenSources();
         
@@ -323,7 +327,11 @@ public class AudioPlayer {
         }
         
         if (currentStream != null) {
-            currentStream.close();
+            try {
+                currentStream.close();
+            } catch (Exception e) {
+                logger.error("Failed to close stream.",e);
+            }
             currentStream = null;
         }
     }

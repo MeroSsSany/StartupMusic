@@ -1,5 +1,6 @@
 package dev.merosssany.musicaltone;
 
+import java.io.File;
 import java.io.IOException;
 
 import dev.merosssany.musicaltone.core.AudioThread;
@@ -31,8 +32,15 @@ public class StartupMusicalTone {
     
     public StartupMusicalTone(FMLJavaModLoadingContext context) {
         context.registerConfig(ModConfig.Type.CLIENT, CONFIG_SPEC);
-        
         thread = new AudioThread(new AudioPlayer());
+        
+        try {
+            FileManager.getRandomFileFrom(FileManager.getMusicFolder());
+        } catch (IOException e) {
+            showError(e);
+            return;
+        }
+        
         thread.start();
         
         try {
@@ -49,15 +57,18 @@ public class StartupMusicalTone {
     
     public void playMusic() {
         String track = Data.getRandomTrack();
-        String file;
+        File file;
         
         try {
-            if (track == null) {
-                file = FileManager.getRandomFileFrom(FileManager.getMusicFolder()).getAbsolutePath();
-            } else file = FileManager.getFile(track).getAbsolutePath();
+            if (track == null || track.isEmpty()) {
+                file = FileManager.getRandomFileFrom(FileManager.getMusicFolder());
+                track = null;
+                
+            } else file = FileManager.getFile(track);
             
             thread.startStream(file);
-            String trackName = FileManager.getFile(track).getName();
+            
+            String trackName = track == null? "" : FileManager.getFile(track).getName();
             thread.addTask(() -> thread.getPlayer().setVolume((float) Data.volume.getOrDefault(trackName, 100) / 100));
             
         } catch (IOException e) {
@@ -67,22 +78,20 @@ public class StartupMusicalTone {
     }
     
     @SuppressWarnings("removal")
-    private static void showError(Exception e) {
+    public static void showError(Exception e) {
         logger.error("An error has happened", e);
         
         ModLoader.get().addWarning(new ModLoadingWarning(ModLoadingContext.get().getActiveContainer().getModInfo(),
                 ModLoadingStage.CONSTRUCT, "Startup Musical Tone failed to load ogg file: " + e.getMessage(), e
-        
         ));
     }
     
     @SuppressWarnings("removal")
-    private static void showError(String msg, Exception e) {
+    private static void showError(String msg) {
         logger.error("An error has happened: {}", msg);
         
         ModLoader.get().addWarning(new ModLoadingWarning(ModLoadingContext.get().getActiveContainer().getModInfo(),
-                ModLoadingStage.CONSTRUCT, "Startup Musical Tone: " + msg, e
-        
+                ModLoadingStage.CONSTRUCT, "Startup Musical Tone: " + msg
         ));
     }
     

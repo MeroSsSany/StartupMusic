@@ -64,7 +64,9 @@ public class FileManager {
 	}
 	
 	public static File getRandomFileFrom(Path path) throws IOException {
-		File[] files = getAllFilesFrom(path);
+        File[] files = getAllFilesFrom(path);
+        if (files.length == 0) throw new IOException("No files was found to select.");
+        
 		double rand = Math.floor(Math.random() * files.length);
 		return files[(int) rand];
 	}
