@@ -1,16 +1,17 @@
 package dev.merosssany.musicaltone.core;
 
+import com.mojang.logging.LogUtils;
 import org.lwjgl.openal.ALC10;
+import org.slf4j.Logger;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static dev.merosssany.musicaltone.StartupMusicalTone.showError;
-
 public class AudioThread extends Thread {
     private static final AtomicBoolean started = new AtomicBoolean();
+    private static final Logger logger = LogUtils.getLogger();
     
     private final AtomicBoolean running = new AtomicBoolean(true);
     private final ConcurrentLinkedQueue<Runnable> tasks = new ConcurrentLinkedQueue<>();
@@ -34,8 +35,10 @@ public class AudioThread extends Thread {
                 while ((task = tasks.poll()) != null) task.run();
                 
                 player.updateStreaming();
+                player.updateFadeProgress(0.005f);
                 
-                if (!player.isPlaying() && player.hasTrack()) {
+                if (!player.isStreaming() && player.hasTrack()) {
+                    player.stop();
                     if (endCallback != null) {
                         endCallback.run();
                     }
@@ -70,7 +73,7 @@ public class AudioThread extends Thread {
             try {
                 player.startStream(path);
             } catch (IOException e) {
-                showError(e);
+                logger.error("Failed to stream audio", e);
             }
         });
     }

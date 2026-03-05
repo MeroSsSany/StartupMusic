@@ -46,7 +46,15 @@ public class StartupMusicalTone {
         try {
             FileManager.init();
             playMusic();
-            thread.setEndCallback(this::playMusic);
+            thread.setEndCallback(() -> {
+                try {
+                    Thread.sleep(1000);
+                    playMusic();
+                    
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            });
             
         } catch (Exception e) {
             showError(e);
@@ -96,6 +104,8 @@ public class StartupMusicalTone {
     }
     
     public void onLoadingComplete(FMLLoadCompleteEvent event) {
-        thread.stopAudio();
+        thread.addTask(() -> {
+            thread.getPlayer().startFadeOut(1.5f);
+        });
     }
 }
