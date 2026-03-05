@@ -5,8 +5,7 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.function.BiConsumer;
+import java.util.Collection;
 
 import org.slf4j.Logger;
 
@@ -17,7 +16,7 @@ import net.minecraftforge.fml.loading.FMLPaths;
 public class FileManager {
 	private static final Logger logger = LogUtils.getLogger();
 	
-	public static Path getGameDir() {
+	public static Path geConfigDir() {
 		return FMLPaths.CONFIGDIR.get();
 	}
 	
@@ -27,7 +26,7 @@ public class FileManager {
 	}
 	
 	public static void init() throws IOException {
-		Path game = getGameDir();
+		Path game = geConfigDir();
 		Path musicFolder = Path.of(game.toString(), "music");
 		
 		if (!musicFolder.toFile().exists()) createFolder("music",game);
@@ -40,42 +39,35 @@ public class FileManager {
 		
 		else throw new IOException("File does not exists at path: "+file.getAbsolutePath());
 	}
-	
-	public static File getFile(Path path) throws IOException {
-		File file = path.toFile();
-		if (file.exists()) return file;
-		else throw new IOException("File does not exists at path: "+file.getAbsolutePath());
-	}
     
     public static Path getMusicFolder() throws IOException {
-        Path musicPath = getGameDir().resolve("music");
+        Path musicPath = geConfigDir().resolve("music");
         if (Files.notExists(musicPath)) {
             Files.createDirectories(musicPath);
         }
         return musicPath;
     }
-	
-	public static File[] getAllFilesFrom(Path path) throws IOException {
-		File file = path.toFile();
-		
-		if (file.isDirectory()) return file.listFiles();
-		else throw new IOException("This is a file, not a directory at "+path.toAbsolutePath());
-	}
-    
     
     public static File[] getAllFilesFrom(Path path, FilenameFilter consumer) throws IOException {
         File folder = path.toFile();
         if (!folder.isDirectory()) throw new IOException("Not a directory: " + path);
         
-        // Filter for .ogg or .mp3 files specifically
         return folder.listFiles(consumer);
     }
-	public static File getRandomFileFrom(Path path) throws IOException {
-        File[] files = getAllFilesFrom(path, (dir, name) -> name.endsWith(".ogg") || name.endsWith(".mp3"));
-        if (files.length == 0) throw new IOException("No files was found to select at path \""+ path.toAbsolutePath()+"\"");
+    public static File getRandomFileFrom(Path path, Collection<String> filter) throws IOException {
+        File[] files = getAllFilesFrom(path, (dir, name) -> {
+            int lastDot = name.lastIndexOf('.');
+            if (lastDot == -1) return false; // No extension
+            String ext = name.substring(lastDot + 1).toLowerCase();
+            return filter.contains(ext);
+        });
         
-		double rand = Math.floor(Math.random() * files.length);
-		return files[(int) rand];
-	}
+        if (files == null || files.length == 0) {
+            throw new IOException("No supported music files found at: " + path.toAbsolutePath());
+        }
+        
+        int index = (int) (Math.random() * files.length);
+        return files[index];
+    }
 }
 

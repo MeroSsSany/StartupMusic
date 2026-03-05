@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -15,6 +16,17 @@ public class Data {
     public static final ConcurrentHashMap<String, Integer> probability = new ConcurrentHashMap<>();
     public static final ConcurrentHashMap<String, Integer> volume = new ConcurrentHashMap<>();
     private static final Logger logger = LogUtils.getLogger();
+    private static final Path musicFolder;
+    
+    static {
+        Path path;
+        try {
+            path = FileManager.getMusicFolder();
+        } catch (IOException e) {
+            path = FileManager.geConfigDir().resolve("music");
+        }
+        musicFolder = path;
+    }
     
     public static void getMap(List<String> list, Map<String, Integer> map) {
         for (String entry : list) {
@@ -27,16 +39,19 @@ public class Data {
             
             try {
                 String file = parts[0].trim();
-                if (Files.exists(FileManager.getMusicFolder().resolve(file)))
+                if (Files.exists(musicFolder.resolve(file)))
                     map.put(file, Integer.parseInt(parts[1].trim()));
                 
             } catch (NumberFormatException e) {
                 logger.warn("Invalid volume entry: {}", entry);
-            } catch (IOException ignored) {}
+            }
         }
     }
     
     public static void load() {
+        volume.clear();
+        probability.clear();
+        
         getMap((List<String>) Config.volume.get(), volume);
         getMap((List<String>) Config.probability.get(), probability);
         
@@ -51,6 +66,7 @@ public class Data {
         
         int totalWeight = probability.values().stream().mapToInt(Integer::intValue).sum();
         int random = ThreadLocalRandom.current().nextInt(totalWeight);
+        if (totalWeight <= 0) return null;
         
         for (Map.Entry<String, Integer> entry : probability.entrySet()) {
             random -= entry.getValue();

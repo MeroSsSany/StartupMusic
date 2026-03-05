@@ -4,12 +4,14 @@ import com.mojang.logging.LogUtils;
 import org.slf4j.Logger;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static dev.merosssany.musicaltone.StartupMusicalTone.showError;
+
 public class AudioThread extends Thread {
     private static final AtomicBoolean started = new AtomicBoolean();
+    private static final AtomicBoolean end = new AtomicBoolean();
     private static final Logger logger = LogUtils.getLogger();
     
     private final AtomicBoolean running = new AtomicBoolean(true);
@@ -26,8 +28,6 @@ public class AudioThread extends Thread {
     
     @Override
     public void run() {
-        player.init();
-        
         try {
             long lastTime = System.nanoTime();
             
@@ -41,10 +41,11 @@ public class AudioThread extends Thread {
                 player.updateStreaming();
                 player.updateFadeProgress(deltaTime);
                 
+                if (!player.isStreaming() && end.get()) break;
+                
                 if (!player.isStreaming() && running.get()) {
                     if (endCallback != null) {
                         endCallback.run();
-                        endCallback = null;
                     }
                 }
                 
@@ -55,6 +56,7 @@ public class AudioThread extends Thread {
         } finally {
             started.set(false);
             player.cleanup();
+            end.set(false);
         }
     }
     
@@ -74,8 +76,9 @@ public class AudioThread extends Thread {
         tasks.add(() -> {
             try {
                 player.startStream(path);
-            } catch (IOException e) {
+            } catch (Exception e) {
                 logger.error("Failed to stream audio", e);
+                showError("Failed to stream audio", e);
             }
         });
     }
@@ -90,5 +93,9 @@ public class AudioThread extends Thread {
     
     public AudioPlayer getPlayer() {
         return player;
+    }
+    
+    public void finalizeAudio() {
+        end.set(true);
     }
 }

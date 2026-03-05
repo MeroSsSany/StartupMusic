@@ -2,13 +2,12 @@ package dev.merosssany.musicaltone.core;
 
 import com.mojang.logging.LogUtils;
 import dev.merosssany.musicaltone.data.AudioReader;
-import dev.merosssany.musicaltone.data.AudioStream;
+import dev.merosssany.musicaltone.data.stream.AudioStream;
 import org.lwjgl.system.MemoryUtil;
 import org.slf4j.Logger;
 
 import javax.sound.sampled.*;
 import java.io.File;
-import java.io.IOException;
 import java.nio.ShortBuffer;
 
 public class AudioPlayer {
@@ -25,28 +24,19 @@ public class AudioPlayer {
     private float initialFadeGain; // In linear 0.0 - 1.0
     private float currentVolume = 1.0f;
     
-    private static final int SAMPLES_TO_READ = 4096;
+    private static int samplesToRead = 4096;
     private byte[] byteBuffer;
     private ShortBuffer shortBuf;
     
-    public void init() {
-        try {
-            // We assume 44100Hz Stereo 16-bit, but we'll re-open if the file differs
-            logger.info("Java Sound AudioPlayer initialized.");
-        } catch (Exception e) {
-            logger.error("Failed to initialize Java Sound", e);
-        }
-    }
-    
-    public void startStream(File path) throws IOException {
+    public void startStream(File path) throws Exception {
         stop();
         currentStream = AudioReader.getStreamFromFile(path);
         if (currentStream == null) return;
         
         // Just prepare the buffers, don't open the line yet!
         int channels = currentStream.getChannels();
-        shortBuf = MemoryUtil.memAllocShort(SAMPLES_TO_READ * channels);
-        byteBuffer = new byte[SAMPLES_TO_READ * channels * 2];
+        shortBuf = MemoryUtil.memAllocShort(samplesToRead * channels);
+        byteBuffer = new byte[samplesToRead * channels * 2];
         
         streaming = true;
         logger.info("Stream prepared for: {}", path.getName());
@@ -146,7 +136,6 @@ public class AudioPlayer {
     }
     
     private void finishAndStop() {
-        streaming = false;
         isFading = false;
         
         new Thread(() -> {
@@ -157,14 +146,27 @@ public class AudioPlayer {
         }).start();
     }
     
-    public void stop() {
+    public synchronized void stop() {
         streaming = false;
         isFading = false;
-        if (line != null) {
-            line.stop();
-            line.close();
-            line = null;
+        
+        // Copy the reference to a local variable (Thread Safety 101)
+        SourceDataLine localLine = this.line;
+        
+        if (localLine != null) {
+            try {
+                localLine.stop();
+                localLine.flush();
+                localLine.close();
+            } catch (Exception ignored) {
+            } finally {
+                // Only set the class member to null if it's still pointing to our local copy
+                if (this.line == localLine) {
+                    this.line = null;
+                }
+            }
         }
+        
         if (currentStream != null) {
             try { currentStream.close(); } catch (Exception ignored) {}
             currentStream = null;
@@ -173,6 +175,14 @@ public class AudioPlayer {
     
     public void cleanup() {
         stop();
+    }
+    
+    public void setSamples(int samples) {
+        samplesToRead = samples;
+    }
+    
+    public int getSamples() {
+        return samplesToRead;
     }
     
     public boolean isStreaming() { return streaming; }

@@ -1,13 +1,12 @@
-package dev.merosssany.musicaltone.data.ogg;
+package dev.merosssany.musicaltone.data.stream;
 
-import dev.merosssany.musicaltone.data.AudioStream;
-import org.lwjgl.openal.AL10;
 import org.lwjgl.stb.STBVorbis;
 import org.lwjgl.stb.STBVorbisInfo;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
 
@@ -17,9 +16,9 @@ public class OggStream implements AutoCloseable, AudioStream {
     private final int sampleRate;
     private boolean finished = false;
     
-    public OggStream(String path) {
+    public OggStream(String path) throws IOException {
         File file = new File(path);
-        if (!file.exists()) throw new RuntimeException("OGG file not found: " + path);
+        if (!file.exists()) throw new IOException("OGG file not found: " + path);
         
         try (MemoryStack stack = MemoryStack.stackPush()) {
             IntBuffer error = stack.mallocInt(1);
@@ -31,7 +30,7 @@ public class OggStream implements AutoCloseable, AudioStream {
             );
             
             if (decoder == MemoryUtil.NULL) {
-                throw new RuntimeException("Failed to open OGG. Error: " + error.get(0));
+                throw new IllegalAccessError("Failed to open OGG. Error: " + error.get(0));
             }
             
             STBVorbisInfo info = STBVorbisInfo.malloc(stack);
@@ -48,12 +47,6 @@ public class OggStream implements AutoCloseable, AudioStream {
     
     public int getSampleRate() {
         return sampleRate;
-    }
-    
-    public int getFormat() {
-        return channels == 1
-                ? AL10.AL_FORMAT_MONO16
-                : AL10.AL_FORMAT_STEREO16;
     }
     
     /**

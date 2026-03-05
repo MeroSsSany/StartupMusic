@@ -1,8 +1,6 @@
-package dev.merosssany.musicaltone.data.mp3;
+package dev.merosssany.musicaltone.data.stream;
 
-import dev.merosssany.musicaltone.data.AudioStream;
 import javazoom.jl.decoder.*;
-import org.lwjgl.openal.AL10;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -10,8 +8,8 @@ import java.nio.ShortBuffer;
 
 public class Mp3Stream implements AudioStream, AutoCloseable {
     private final int channels;
-    private Bitstream bitstream;
-    private Decoder decoder;
+    private final Bitstream bitstream;
+    private final Decoder decoder;
     private boolean finished = false;
     private int sampleRate = 44100;
     
@@ -70,10 +68,6 @@ public class Mp3Stream implements AudioStream, AutoCloseable {
             finished = true;
             return 0;
         }
-    }
-    
-    public int getFormat() {
-        return getChannels() == 1 ? AL10.AL_FORMAT_MONO16 : AL10.AL_FORMAT_STEREO16;
     }
     
     @Override
