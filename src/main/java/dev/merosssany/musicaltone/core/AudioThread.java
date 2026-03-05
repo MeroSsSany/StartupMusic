@@ -1,7 +1,6 @@
 package dev.merosssany.musicaltone.core;
 
 import com.mojang.logging.LogUtils;
-import org.lwjgl.openal.ALC10;
 import org.slf4j.Logger;
 
 import java.io.File;
@@ -30,17 +29,22 @@ public class AudioThread extends Thread {
         player.init();
         
         try {
+            long lastTime = System.nanoTime();
+            
             while (running.get()) {
+                long currentTime = System.nanoTime();
+                float deltaTime = (currentTime - lastTime) / 1_000_000_000f;
+                lastTime = currentTime;
                 Runnable task;
                 while ((task = tasks.poll()) != null) task.run();
                 
                 player.updateStreaming();
-                player.updateFadeProgress(0.005f);
+                player.updateFadeProgress(deltaTime);
                 
-                if (!player.isStreaming() && player.hasTrack()) {
-                    player.stop();
+                if (!player.isStreaming() && running.get()) {
                     if (endCallback != null) {
                         endCallback.run();
+                        endCallback = null;
                     }
                 }
                 
@@ -51,7 +55,6 @@ public class AudioThread extends Thread {
         } finally {
             started.set(false);
             player.cleanup();
-            ALC10.alcMakeContextCurrent(0);
         }
     }
     
@@ -65,7 +68,6 @@ public class AudioThread extends Thread {
     
     public void stopAudio() {
         running.set(false);
-        interrupt();
     }
     
     public void startStream(File path) {

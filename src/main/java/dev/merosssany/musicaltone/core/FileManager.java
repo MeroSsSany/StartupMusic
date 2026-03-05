@@ -1,9 +1,12 @@
 package dev.merosssany.musicaltone.core;
 
 import java.io.File;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.function.BiConsumer;
 
 import org.slf4j.Logger;
 
@@ -43,18 +46,14 @@ public class FileManager {
 		if (file.exists()) return file;
 		else throw new IOException("File does not exists at path: "+file.getAbsolutePath());
 	}
-	
-	public static Path getMusicFolder() throws IOException {
-		Path game = getGameDir();
-		Path music = Path.of(game.toString(), "music");
-		
-		if (music.toFile().exists()) return music;
-		else {
-			Path ret = game.resolve("music");
-			Files.createDirectories(ret);
-			return ret;
-		}
-	}
+    
+    public static Path getMusicFolder() throws IOException {
+        Path musicPath = getGameDir().resolve("music");
+        if (Files.notExists(musicPath)) {
+            Files.createDirectories(musicPath);
+        }
+        return musicPath;
+    }
 	
 	public static File[] getAllFilesFrom(Path path) throws IOException {
 		File file = path.toFile();
@@ -62,10 +61,18 @@ public class FileManager {
 		if (file.isDirectory()) return file.listFiles();
 		else throw new IOException("This is a file, not a directory at "+path.toAbsolutePath());
 	}
-	
+    
+    
+    public static File[] getAllFilesFrom(Path path, FilenameFilter consumer) throws IOException {
+        File folder = path.toFile();
+        if (!folder.isDirectory()) throw new IOException("Not a directory: " + path);
+        
+        // Filter for .ogg or .mp3 files specifically
+        return folder.listFiles(consumer);
+    }
 	public static File getRandomFileFrom(Path path) throws IOException {
-        File[] files = getAllFilesFrom(path);
-        if (files.length == 0) throw new IOException("No files was found to select.");
+        File[] files = getAllFilesFrom(path, (dir, name) -> name.endsWith(".ogg") || name.endsWith(".mp3"));
+        if (files.length == 0) throw new IOException("No files was found to select at path \""+ path.toAbsolutePath()+"\"");
         
 		double rand = Math.floor(Math.random() * files.length);
 		return files[(int) rand];

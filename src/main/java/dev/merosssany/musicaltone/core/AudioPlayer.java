@@ -3,133 +3,91 @@ package dev.merosssany.musicaltone.core;
 import com.mojang.logging.LogUtils;
 import dev.merosssany.musicaltone.data.AudioReader;
 import dev.merosssany.musicaltone.data.AudioStream;
-import dev.merosssany.musicaltone.data.ogg.OggLoader;
-import org.lwjgl.openal.AL;
-import org.lwjgl.openal.AL10;
-import org.lwjgl.openal.ALC;
-import org.lwjgl.openal.ALC10;
 import org.lwjgl.system.MemoryUtil;
 import org.slf4j.Logger;
 
+import javax.sound.sampled.*;
 import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
 
-import static org.lwjgl.openal.AL10.*;
-import static org.lwjgl.openal.ALC10.alcCloseDevice;
-import static org.lwjgl.openal.ALC10.alcDestroyContext;
-
 public class AudioPlayer {
-    private int bufferId;
-    private int sourceId;
-    private long device;
-    private long context;
-    private boolean initialized = false;
-    private boolean isFading;
-    private float fadeTimeElapsed;
-    private float fadeDurationSeconds;
-    private float initialFadeGain;
     private static final Logger logger = LogUtils.getLogger();
     
-    private static final int BUFFER_COUNT = 4;
-    private static final int STREAM_BUFFER_SAMPLES = 4096 * 8;
-    
-    private final int[] buffers = new int[BUFFER_COUNT];
-    private ShortBuffer streamBuffer;
+    private SourceDataLine line;
     private AudioStream currentStream;
-    private boolean streaming;
     
-    @Deprecated
-    public void play(OggLoader.AudioData audioData) {
-        if (initialized) {
-            logger.info("Playing music...");
-            stop();
-            
-            bufferId = alGenBuffers();
-            
-            int format;
-            if (audioData.channels() == 1) {
-                format = AL_FORMAT_MONO16;
-            } else if (audioData.channels() == 2) {
-                format = AL_FORMAT_STEREO16;
-            } else {
-                throw new IllegalStateException("Only mono or stereo is supported");
-            }
-            
-            alBufferData(bufferId, format, audioData.samples(), audioData.sampleRate());
-            alSourcei(sourceId, AL_BUFFER, bufferId);
-            alSourcePlay(sourceId);
+    private boolean streaming = false;
+    private boolean isFading = false;
+    
+    private float fadeTimeElapsed;
+    private float fadeDurationSeconds;
+    private float initialFadeGain; // In linear 0.0 - 1.0
+    private float currentVolume = 1.0f;
+    
+    private static final int SAMPLES_TO_READ = 4096;
+    private byte[] byteBuffer;
+    private ShortBuffer shortBuf;
+    
+    public void init() {
+        try {
+            // We assume 44100Hz Stereo 16-bit, but we'll re-open if the file differs
+            logger.info("Java Sound AudioPlayer initialized.");
+        } catch (Exception e) {
+            logger.error("Failed to initialize Java Sound", e);
         }
     }
     
     public void startStream(File path) throws IOException {
         stop();
-        
         currentStream = AudioReader.getStreamFromFile(path);
+        if (currentStream == null) return;
         
-        sourceId = AL10.alGenSources();
+        // Just prepare the buffers, don't open the line yet!
+        int channels = currentStream.getChannels();
+        shortBuf = MemoryUtil.memAllocShort(SAMPLES_TO_READ * channels);
+        byteBuffer = new byte[SAMPLES_TO_READ * channels * 2];
         
-        for (int i = 0; i < BUFFER_COUNT; i++) {
-            buffers[i] = AL10.alGenBuffers();
-        }
-        
-        streamBuffer = MemoryUtil.memAllocShort(STREAM_BUFFER_SAMPLES);
-        
-        // Pre-fill queue
-        for (int i = 0; i < BUFFER_COUNT; i++) {
-            streamBuffer.clear();
-            
-            int samples = currentStream.readSamples(streamBuffer);
-            if (samples == 0) break;
-            
-            streamBuffer.limit(samples * currentStream.getChannels());
-            
-            AL10.alBufferData(
-                    buffers[i],
-                    currentStream.getFormat(),
-                    streamBuffer,
-                    currentStream.getSampleRate()
-            );
-            
-            AL10.alSourceQueueBuffers(sourceId, buffers[i]);
-        }
-        
-        AL10.alSourcePlay(sourceId);
         streaming = true;
+        logger.info("Stream prepared for: {}", path.getName());
     }
     
     public void updateStreaming() {
-        if (!streaming) return;
+        if (!streaming || currentStream == null) return;
         
-        int processed = AL10.alGetSourcei(sourceId, AL10.AL_BUFFERS_PROCESSED);
+        shortBuf.clear();
+        int samplesPerChannel = currentStream.readSamples(shortBuf);
         
-        while (processed-- > 0) {
-            int buffer = AL10.alSourceUnqueueBuffers(sourceId);
+        if (samplesPerChannel > 0) {
+            int actualRate = currentStream.getSampleRate();
+            int actualChannels = currentStream.getChannels();
             
-            streamBuffer.clear();
-            
-            int samples = currentStream.readSamples(streamBuffer);
-            
-            if (samples > 0) {
-                streamBuffer.limit(samples * currentStream.getChannels());
-                
-                AL10.alBufferData(
-                        buffer,
-                        currentStream.getFormat(),
-                        streamBuffer,
-                        currentStream.getSampleRate()
-                );
-                
-                AL10.alSourceQueueBuffers(sourceId, buffer);
+            // Check if we need to (re)open the line (Rate Correction)
+            if (line == null || line.getFormat().getSampleRate() != (float)actualRate) {
+                if (actualRate > 1) {
+                    reopenLine(actualRate, actualChannels);
+                }
             }
-        }
-        
-        int state = AL10.alGetSourcei(sourceId, AL10.AL_SOURCE_STATE);
-        
-        if (state != AL10.AL_PLAYING && !currentStream.isFinished()) {
-            AL10.alSourcePlay(sourceId);
+            
+            if (line != null) {
+                int totalSamples = samplesPerChannel * actualChannels;
+                int bytesToWrite = totalSamples * 2;
+                
+                // Ensure byteBuffer is always exactly the right size for this chunk
+                if (byteBuffer.length != bytesToWrite) {
+                    byteBuffer = new byte[bytesToWrite];
+                }
+                
+                // Convert Shorts to Bytes (Little Endian)
+                for (int i = 0; i < totalSamples; i++) {
+                    short sample = shortBuf.get(i);
+                    byteBuffer[i * 2] = (byte) (sample & 0xFF);
+                    byteBuffer[i * 2 + 1] = (byte) ((sample >> 8) & 0xFF);
+                }
+                
+                // The thread will wait here until the audio hardware is ready.
+                line.write(byteBuffer, 0, bytesToWrite);
+            }
         }
         
         if (currentStream.isFinished()) {
@@ -137,203 +95,85 @@ public class AudioPlayer {
         }
     }
     
-    public void cleanup() {
-        if (!initialized) return;
-        
-        stop();
-        
-        if (sourceId != 0) {
-            alDeleteSources(sourceId);
-            sourceId = 0;
+    private void reopenLine(int rate, int channels) {
+        try {
+            if (line != null) { line.stop(); line.close(); }
+            
+            AudioFormat format = new AudioFormat((float)rate, 16, channels, true, false);
+            DataLine.Info info = new DataLine.Info(SourceDataLine.class, format);
+            line = (SourceDataLine) AudioSystem.getLine(info);
+            line.open(format);
+            line.start();
+            setVolume(currentVolume);
+            logger.info("Audio line established at {}Hz ({} channels)", rate, channels);
+        } catch (Exception e) {
+            logger.error("Failed to open Java Sound line", e);
         }
-        
-        if (context != MemoryUtil.NULL) {
-            alcDestroyContext(context);
-            context = 0;
-        }
-        
-        if (device != MemoryUtil.NULL) {
-            alcCloseDevice(device);
-            device = 0;
-        }
-        
-        initialized = false;
     }
     
     public void setVolume(float volume) {
-        if (!initialized || sourceId == 0) return;
+        this.currentVolume = volume;
+        if (line == null || !line.isControlSupported(FloatControl.Type.MASTER_GAIN)) return;
         
-        volume = Math.max(0.0f, Math.min(1.0f, volume)); // clamp between 0 and 1
-        AL10.alSourcef(sourceId, AL10.AL_GAIN, volume);
-    }
-    
-    public void init() {
-        device = ALC10.alcOpenDevice((ByteBuffer) null);
-        if (device == MemoryUtil.NULL)
-            throw new IllegalStateException("Failed to open device");
+        FloatControl gainControl = (FloatControl) line.getControl(FloatControl.Type.MASTER_GAIN);
         
-        context = ALC10.alcCreateContext(device, (IntBuffer) null);
-        if (context == MemoryUtil.NULL)
-            throw new IllegalStateException("Failed to create context");
-        
-        ALC10.alcMakeContextCurrent(context);
-        AL.createCapabilities(ALC.createCapabilities(device));
-        
-        sourceId = alGenSources();
-        initialized = true;
-    }
-    
-    public boolean isPlaying() {
-        if (!initialized || sourceId == 0) return false;
-        int state = AL10.alGetSourcei(sourceId, AL_SOURCE_STATE);
-        throwIfErrored();
-        return state == AL_PLAYING;
-    }
-    
-    public boolean isStopped() throws IllegalStateException {
-        if (!initialized || sourceId == 0) return false;
-        throwIfErrored();
-        return  getOpenALState() == AL_STOPPED;
-    }
-    
-    public int getOpenALState() {
-        if (!initialized || sourceId == 0) return 0;
-        throwIfErrored();
-        return AL10.alGetSourcei(sourceId,AL_SOURCE_STATE);
-    }
-    
-    public boolean isPaused() {
-        if (!initialized || sourceId == 0) return false;
-        throwIfErrored();
-        return AL10.alGetSourcei(sourceId,AL_SOURCE_STATE) == AL_PAUSED;
-    }
-    
-    public boolean hasTrack() {
-        return sourceId != 0;
-    }
-    
-    private void throwIfErrored() throws IllegalStateException {
-        if (hasError()) {
-            throw new IllegalStateException("There was an error in OpenAL, code: "+getOpenALError());
-        }
-    }
-    
-    public int getOpenALError(){
-        return AL10.alGetError();
-    }
-    
-    public boolean hasError() {
-        return getOpenALError() != AL_NO_ERROR;
+        // Convert linear 0.0-1.0 to Decibels
+        // dB = 20 * log10(volume)
+        float dB = (float) (Math.log(Math.max(volume, 0.0001f)) / Math.log(10.0) * 20.0);
+        gainControl.setValue(Math.max(gainControl.getMinimum(), Math.min(gainControl.getMaximum(), dB)));
     }
     
     public void startFadeOut(float durationSeconds) {
-        // Cannot start a fade if not initialized, no valid source, or already fading
-        if (!initialized || sourceId == 0 || isFading) {
-            if (isFading) logger.debug("Already fading out.");
-            if (!initialized) logger.warn("Cannot start fade, AudioPlayer not initialized.");
-            if (sourceId == 0) logger.warn("Cannot start fade, no active source.");
-            return;
-        }
-        // Check for invalid duration
-        if (durationSeconds <= 0) {
-            logger.warn("Fade duration must be positive. Stopping sound immediately.");
-            stop(); // Stop immediately if duration is 0 or less
-            return;
-        }
-        
-        
-        logger.debug("Starting non-blocking fade out over {} seconds.", durationSeconds);
+        if (!streaming || isFading) return;
         isFading = true;
         fadeDurationSeconds = durationSeconds;
-        fadeTimeElapsed = 0; // Reset timer for a new fade
-        initialFadeGain = AL10.alGetSourcef(sourceId, AL10.AL_GAIN); // Get current gain
-        int error = AL10.alGetError(); // Check error after getting initial gain
-        if (error != AL_NO_ERROR) {
-            logger.warn("OpenAL Error getting initial gain for fade: {}. Using 1.0f.", AL10.alGetString(error));
-            // Continue with initialGain potentially being default (1.0f) if error occurs
-            initialFadeGain = 1.0f; // Default gain fallback
+        fadeTimeElapsed = 0;
+        initialFadeGain = currentVolume;
+        logger.debug("Starting Java Sound fade out: {}s", durationSeconds);
+    }
+    
+    public void updateFadeProgress(float deltaTime) {
+        if (!isFading || !streaming) return;
+        
+        fadeTimeElapsed += deltaTime;
+        if (fadeTimeElapsed >= fadeDurationSeconds) {
+            setVolume(0.0f); // Ensure it's fully silent
+            finishAndStop(); // New graceful stop
+        } else {
+            float progress = fadeTimeElapsed / fadeDurationSeconds;
+            setVolume(initialFadeGain * (1.0f - progress));
         }
     }
     
-    // --- Update Non-Blocking Fade Progress Function ---
-    // This method should be called repeatedly by a time source (like a game tick)
-    // to smoothly update the audio source's volume during a fade-out.
-    // This method is non-blocking and calculates the current volume based on time elapsed.
-    // 'deltaTime' is the time elapsed since the last call to this method, in seconds.
-    public void updateFadeProgress(float deltaTime) {
-        // Only update if initialized, currently fading, and have a valid source
-        if (!initialized || !isFading || sourceId == 0) {
-            // If fading was active but source became invalid unexpectedly, stop fading state
-            if (isFading) {
-                logger.debug("Fade stopped unexpectedly (source invalid or uninitialized).");
-                isFading = false;
-                fadeDurationSeconds = 0;
-                fadeTimeElapsed = 0;
-                initialFadeGain = 0;
-            }
-            return;
-        }
+    private void finishAndStop() {
+        streaming = false;
+        isFading = false;
         
-        fadeTimeElapsed += deltaTime; // Increment float timer
-        
-        if (fadeTimeElapsed >= fadeDurationSeconds) {
-            stop();
-            
-        } else {
-            // Fade is in progress
-            float progress = fadeTimeElapsed / fadeDurationSeconds; // Progress from 0.0 to 1.0
-            // Ensure progress stays within [0, 1] in case of slight float inaccuracies
-            progress = Math.min(1.0f, Math.max(0.0f, progress));
-            
-            // Calculate current gain (linear fade: decreases from initialGain to 0)
-            float currentGain = initialFadeGain * (1.0f - progress);
-            
-            AL10.alSourcef(sourceId, AL10.AL_GAIN, currentGain); // Apply the calculated gain
-            int error = AL10.alGetError(); // Check for errors after setting gain
-            if (error != AL_NO_ERROR) {
-                logger.error("OpenAL Error updating gain during fade: {}", AL10.alGetString(error));
+        new Thread(() -> {
+            if (line != null) {
+                line.drain();
+                stop();
             }
-        }
+        }).start();
     }
     
     public void stop() {
         streaming = false;
-        
-        if (sourceId != 0) {
-            AL10.alSourceStop(sourceId);
-            
-            int queued = AL10.alGetSourcei(sourceId, AL10.AL_BUFFERS_QUEUED);
-            while (queued-- > 0) {
-                AL10.alSourceUnqueueBuffers(sourceId);
-            }
-            
-            AL10.alDeleteSources(sourceId);
-            sourceId = 0;
+        isFading = false;
+        if (line != null) {
+            line.stop();
+            line.close();
+            line = null;
         }
-        
-        for (int i = 0; i < BUFFER_COUNT; i++) {
-            if (buffers[i] != 0) {
-                AL10.alDeleteBuffers(buffers[i]);
-                buffers[i] = 0;
-            }
-        }
-        
-        if (streamBuffer != null) {
-            MemoryUtil.memFree(streamBuffer);
-            streamBuffer = null;
-        }
-        
         if (currentStream != null) {
-            try {
-                currentStream.close();
-            } catch (Exception e) {
-                logger.error("Failed to close stream.",e);
-            }
+            try { currentStream.close(); } catch (Exception ignored) {}
             currentStream = null;
         }
     }
     
-    public boolean isStreaming() {
-        return streaming;
+    public void cleanup() {
+        stop();
     }
+    
+    public boolean isStreaming() { return streaming; }
 }

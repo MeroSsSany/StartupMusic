@@ -64,6 +64,8 @@ public class StartupMusicalTone {
     }
     
     public void playMusic() {
+        logger.info("Attempting to play music...");
+        
         String track = Data.getRandomTrack();
         File file;
         
@@ -73,6 +75,8 @@ public class StartupMusicalTone {
                 track = null;
                 
             } else file = FileManager.getFile(track);
+            
+            logger.info("Streaming \"{}\"...", file);
             
             thread.startStream(file);
             
@@ -106,6 +110,15 @@ public class StartupMusicalTone {
     public void onLoadingComplete(FMLLoadCompleteEvent event) {
         thread.addTask(() -> {
             thread.getPlayer().startFadeOut(1.5f);
+            new Thread(() -> {
+                try {
+                    Thread.sleep(1500);
+                    thread.stopAudio();
+                    
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }).start();
         });
     }
 }
