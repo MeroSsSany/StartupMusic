@@ -171,6 +171,11 @@ public class AudioPlayer {
             try { currentStream.close(); } catch (Exception ignored) {}
             currentStream = null;
         }
+        
+        if (shortBuf != null) {
+            MemoryUtil.memFree(shortBuf);
+            shortBuf = null;
+        }
     }
     
     public void cleanup() {

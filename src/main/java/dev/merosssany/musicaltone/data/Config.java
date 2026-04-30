@@ -1,21 +1,21 @@
 package dev.merosssany.musicaltone.data;
 
 import dev.merosssany.musicaltone.StartupMusicalTone;
-import net.minecraftforge.common.ForgeConfigSpec;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.config.ModConfigEvent;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber; // Changed
+import net.neoforged.fml.event.config.ModConfigEvent;
+import net.neoforged.neoforge.common.ModConfigSpec; // Changed from ForgeConfigSpec
 
 import java.util.List;
 
-@Mod.EventBusSubscriber(modid = StartupMusicalTone.modId, bus = Mod.EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(modid = StartupMusicalTone.MOD_ID)
 public class Config {
-    public static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
-    public static final ForgeConfigSpec CONFIG_SPEC;
+    public static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
+    public static final ModConfigSpec CONFIG_SPEC;
     
-    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> volume;
-    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> probability;
-    public static final ForgeConfigSpec.IntValue floatsPerSample;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> volume;
+    public static final ModConfigSpec.ConfigValue<List<? extends String>> probability;
+    public static final ModConfigSpec.IntValue floatsPerSample;
     
     static {
         BUILDER.push("Basic");
@@ -43,14 +43,11 @@ public class Config {
         if (o instanceof String entry) {
             if (entry.contains(":")) {
                 String[] parts = entry.split(":");
-                
                 if (parts.length == 2) {
                     try {
-                        int value = Integer.parseInt(parts[1]);
+                        int value = Integer.parseInt(parts[1].trim());
                         return value >= 0 && value <= 100;
-                        
-                    } catch (NumberFormatException ignored) {
-                    }
+                    } catch (NumberFormatException ignored) {}
                 }
             }
         }
@@ -61,14 +58,11 @@ public class Config {
         if (o instanceof String entry) {
             if (entry.contains(":")) {
                 String[] parts = entry.split(":");
-                
                 if (parts.length == 2) {
                     try {
-                        int value = Integer.parseInt(parts[1]);
+                        int value = Integer.parseInt(parts[1].trim());
                         return value >= 0;
-                        
-                    } catch (NumberFormatException ignored) {
-                    }
+                    } catch (NumberFormatException ignored) {}
                 }
             }
         }
@@ -77,8 +71,10 @@ public class Config {
     
     @SubscribeEvent
     public static void onLoad(ModConfigEvent e) {
-        Data.load();
-        
-        StartupMusicalTone.startPlaying();
+        // Ensure we only react to OUR config being loaded
+        if (e.getConfig().getSpec() == CONFIG_SPEC) {
+            DataLoader.load();
+            StartupMusicalTone.startPlaying();
+        }
     }
 }
