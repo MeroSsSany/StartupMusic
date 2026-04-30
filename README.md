@@ -6,7 +6,7 @@
 ---
 ## 📥 Installation
 1. Download the mod from [CurseForge](https://www.curseforge.com/minecraft/mc-mods/startup-music)
-2. Make sure you have **Forge** installed.
+2. Make sure you have **NeoForge** installed.
 3. Drop the `.jar` file that you downloaded from CurseForge into your `/mods` folder.
 4. Place your desired `.ogg`, `.oga`, `.mp3` or `.wav` file in the `config/music/` folder.
 ---
