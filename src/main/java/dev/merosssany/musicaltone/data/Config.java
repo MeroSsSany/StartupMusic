@@ -1,84 +1,71 @@
 package dev.merosssany.musicaltone.data;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import dev.merosssany.musicaltone.StartupMusicalTone;
-import net.minecraftforge.common.ForgeConfigSpec;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.config.ModConfigEvent;
+import net.fabricmc.loader.api.FabricLoader;
 
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
-@Mod.EventBusSubscriber(modid = StartupMusicalTone.modId, bus = Mod.EventBusSubscriber.Bus.MOD)
 public class Config {
-    public static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
-    public static final ForgeConfigSpec CONFIG_SPEC;
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final File CONFIG_FILE = FabricLoader.getInstance().getConfigDir().resolve("startupmusicmod.json").toFile();
     
-    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> volume;
-    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> probability;
-    public static final ForgeConfigSpec.IntValue floatsPerSample;
+    // The actual data object
+    public static ConfigData instance = new ConfigData();
     
-    static {
-        BUILDER.push("Basic");
+    public static class ConfigData {
+        // "Basic" Section
+        public List<String> volume = new ArrayList<>();
+        public List<String> probability = new ArrayList<>();
         
-        volume = BUILDER
-                .comment("Volume of the tracks.\n\nFormat: track name.ext:volume")
-                .defineList("volume", List.of(), Config::validateVolume);
-        
-        probability = BUILDER
-                .comment("The chance of the track playing.\n\nFormat: track name.ext:probability")
-                .defineList("probability", List.of(), Config::validateProbability);
-        
-        BUILDER.pop();
-        BUILDER.push("Advanced");
-        
-        floatsPerSample = BUILDER
-                .comment("How many floats (the audio data) will be sent per batch.")
-                .defineInRange("floatsPerBatch", 4096, 1024, 1048576);
-        
-        BUILDER.pop();
-        CONFIG_SPEC = BUILDER.build();
+        // "Advanced" Section
+        public int floatsPerBatch = 4096;
     }
     
-    private static boolean validateVolume(Object o) {
-        if (o instanceof String entry) {
-            if (entry.contains(":")) {
-                String[] parts = entry.split(":");
-                
-                if (parts.length == 2) {
-                    try {
-                        int value = Integer.parseInt(parts[1]);
-                        return value >= 0 && value <= 100;
-                        
-                    } catch (NumberFormatException ignored) {
-                    }
-                }
+    // These maintain compatibility with your existing Data.java code
+    public static Supplier<List<String>> volume = () -> instance.volume;
+    public static Supplier<List<String>> probability = () -> instance.probability;
+    public static Supplier<Integer> floatsPerSample = () -> instance.floatsPerBatch;
+    
+    public static void load() {
+        if (!CONFIG_FILE.exists()) {
+            save(); // Create default file if it doesn't exist
+        } else {
+            try (FileReader reader = new FileReader(CONFIG_FILE)) {
+                instance = GSON.fromJson(reader, ConfigData.class);
+                validate(); // Ensure users didn't put weird values in the JSON
+            } catch (IOException e) {
+                System.err.println("Failed to load config, using defaults.");
             }
         }
-        return false;
-    }
-    
-    private static boolean validateProbability(Object o) {
-        if (o instanceof String entry) {
-            if (entry.contains(":")) {
-                String[] parts = entry.split(":");
-                
-                if (parts.length == 2) {
-                    try {
-                        int value = Integer.parseInt(parts[1]);
-                        return value >= 0;
-                        
-                    } catch (NumberFormatException ignored) {
-                    }
-                }
-            }
-        }
-        return false;
-    }
-    
-    @SubscribeEvent
-    public static void onLoad(ModConfigEvent e) {
+        
+        // This replaces the Forge @SubscribeEvent onLoad
         Data.load();
-        
         StartupMusicalTone.startPlaying();
+    }
+    
+    public static void save() {
+        try (FileWriter writer = new FileWriter(CONFIG_FILE)) {
+            GSON.toJson(instance, writer);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Manual validation since we don't have ForgeConfigSpec.Builder anymore.
+     */
+    private static void validate() {
+        if (instance.floatsPerBatch < 1024 || instance.floatsPerBatch > 1048576) {
+            instance.floatsPerBatch = 4096;
+        }
+        // You can add more logic here to scrub the lists if needed
     }
 }

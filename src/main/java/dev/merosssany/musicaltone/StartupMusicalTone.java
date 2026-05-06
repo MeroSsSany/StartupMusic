@@ -109,6 +109,7 @@ public class StartupMusicalTone {
         thread.addTask(() -> {
             thread.getPlayer().startFadeOut(1.5f);
             thread.finalizeAudio();
+            
         });
     }
     
