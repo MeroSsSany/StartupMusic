@@ -46,9 +46,7 @@ public class Config {
             }
         }
         
-        // This replaces the Forge @SubscribeEvent onLoad
         Data.load();
-        StartupMusicalTone.startPlaying();
     }
     
     public static void save() {

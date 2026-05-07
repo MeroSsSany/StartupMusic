@@ -24,14 +24,12 @@ repositories {
 }
 
 loom {
-    // 1.19.2 doesn't strictly require split source sets,
-    // but we can keep it if you want to organize Client code separately.
-    splitEnvironmentSourceSets()
-
-    mods {
-        "startupmusicmod" {
-            sourceSet sourceSets.main
-            sourceSet sourceSets.client
+    runs {
+        client {
+            client()
+            setConfigName("Minecraft Client")
+            ideConfigGenerated(true)
+            runDir("run")
         }
     }
 }

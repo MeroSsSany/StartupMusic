@@ -8,53 +8,45 @@ import dev.merosssany.musicaltone.data.AudioReader;
 import dev.merosssany.musicaltone.data.Config;
 import dev.merosssany.musicaltone.data.Data;
 import dev.merosssany.musicaltone.data.factory.DefaultFactories;
+import net.fabricmc.api.ClientModInitializer;
 import org.slf4j.Logger;
-
-import com.mojang.logging.LogUtils;
+import org.slf4j.LoggerFactory;
 
 import dev.merosssany.musicaltone.core.AudioPlayer;
 import dev.merosssany.musicaltone.core.FileManager;
-import net.minecraftforge.fml.ModLoader;
-import net.minecraftforge.fml.ModLoadingContext;
-import net.minecraftforge.fml.ModLoadingStage;
-import net.minecraftforge.fml.ModLoadingWarning;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.event.lifecycle.FMLLoadCompleteEvent;
-import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
-import net.minecraftforge.fml.config.ModConfig;
 
-@Mod(StartupMusicalTone.modId)
-public class StartupMusicalTone {
+public class StartupMusicalTone implements ClientModInitializer {
     public static final String modId = "startupmusicmod";
-    private static final Logger logger = LogUtils.getLogger();
+    private static final Logger logger = LoggerFactory.getLogger(modId);
     
     private static boolean isPlaying = false;
     private static AudioThread thread;
     
-    public StartupMusicalTone(FMLJavaModLoadingContext context) {
-        context.registerConfig(ModConfig.Type.CLIENT, CONFIG_SPEC);
+    @Override
+    public void onInitializeClient() {
+        logger.info("Initializing Startup Music Tone...");
         DefaultFactories.register();
+        Config.load();
         
         thread = new AudioThread(new AudioPlayer());
         
         try {
+            // Check if folder is valid
             FileManager.getRandomFileFrom(FileManager.getMusicFolder(), AudioReader.getSupportedFiles());
         } catch (IOException e) {
-            showError(e);
-            return;
+            showError("Failed to access music folder", e);
         }
         
-        context.getModEventBus().addListener(this::onLoadingComplete);
+        StartupMusicalTone.startPlaying();
     }
     
     private static void playMusic() {
-        String trackKey = Data.getRandomTrack(); // This is the filename from config (e.g. "theme.ogg")
+        String trackKey = Data.getRandomTrack();
         File file;
         
         try {
             if (trackKey == null || trackKey.isEmpty()) {
                 file = FileManager.getRandomFileFrom(FileManager.getMusicFolder(), AudioReader.getSupportedFiles());
-                // If it's a random file NOT in the config, use its actual name for volume lookup
                 trackKey = file.getName();
             } else {
                 file = FileManager.getFile(trackKey);
@@ -63,7 +55,6 @@ public class StartupMusicalTone {
             logger.info("Streaming \"{}\"...", file.getName());
             thread.startStream(file);
             
-            // Final local variable for the lambda
             final String finalKey = trackKey;
             thread.addTask(() -> {
                 float vol = (float) Data.volume.getOrDefault(finalKey, 100) / 100f;
@@ -76,43 +67,31 @@ public class StartupMusicalTone {
         }
     }
     
-    @SuppressWarnings("removal")
+    // Fabric doesn't have a ModLoadingWarning GUI, so we use standard logging.
     public static void showError(Exception e) {
-        logger.error("An error has happened", e);
-        
-        ModLoader.get().addWarning(new ModLoadingWarning(ModLoadingContext.get().getActiveContainer().getModInfo(),
-                ModLoadingStage.CONSTRUCT, "Startup Musical Tone failed to load ogg file: " + e.getMessage(), e
-        ));
+        logger.error("An error has happened: {}", e.getMessage(), e);
     }
     
-    @SuppressWarnings("removal")
     public static void showError(String msg) {
         logger.error("An error has happened: {}", msg);
-        
-        ModLoader.get().addWarning(new ModLoadingWarning(ModLoadingContext.get().getActiveContainer().getModInfo(),
-                ModLoadingStage.CONSTRUCT, "Startup Musical Tone: " + msg
-        ));
     }
     
-    @SuppressWarnings("removal")
     public static void showError(String msg, Exception e) {
         logger.error("An error has happened: {}", msg, e);
-        
-        ModLoader.get().addWarning(new ModLoadingWarning(ModLoadingContext.get().getActiveContainer().getModInfo(),
-                ModLoadingStage.CONSTRUCT, "Startup Musical Tone: " + msg, e
-        ));
     }
     
-    public void onLoadingComplete(FMLLoadCompleteEvent event) {
-        thread.addTask(() -> {
-            thread.getPlayer().startFadeOut(1.5f);
-            thread.finalizeAudio();
-            
-        });
+    public static void stopMusic() {
+        if (!isPlaying) return;
+        if (thread != null) {
+            thread.addTask(() -> {
+                thread.getPlayer().startFadeOut(1.5f);
+                thread.finalizeAudio();
+            });
+        }
     }
     
     public static synchronized void startPlaying() {
-        if (isPlaying) return; // Should only run once per session
+        if (isPlaying) return;
         isPlaying = true;
         
         playMusic();
@@ -126,9 +105,8 @@ public class StartupMusicalTone {
                 try {
                     Thread.sleep(1000);
                     playMusic();
-                    
                 } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
+                    Thread.currentThread().interrupt();
                 }
             });
             

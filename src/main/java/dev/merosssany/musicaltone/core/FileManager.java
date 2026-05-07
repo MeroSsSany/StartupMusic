@@ -8,37 +8,38 @@ import java.nio.file.Path;
 import java.util.Collection;
 
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import com.mojang.logging.LogUtils;
-
-import net.minecraftforge.fml.loading.FMLPaths;
+import net.fabricmc.loader.api.FabricLoader;
 
 public class FileManager {
-	private static final Logger logger = LogUtils.getLogger();
-	
-	public static Path geConfigDir() {
-		return FMLPaths.CONFIGDIR.get();
-	}
-	
-	public static void createFolder(String folderName, Path path) throws IOException {
+    private static final Logger logger = LoggerFactory.getLogger("startupmusicmod");
+    
+    public static Path geConfigDir() {
+        return FabricLoader.getInstance().getConfigDir();
+    }
+    
+    public static void createFolder(String folderName, Path path) throws IOException {
         logger.debug("Creating folder {} at path: {}", folderName, path);
-		Files.createDirectories(path.resolve(folderName));
-	}
-	
-	public static void init() throws IOException {
-		Path game = geConfigDir();
-		Path musicFolder = Path.of(game.toString(), "music");
-		
-		if (!musicFolder.toFile().exists()) createFolder("music",game);
-	}
-	
-	public static File getFile(String path) throws IOException {
-		Path game = getMusicFolder();
-		File file = Path.of(game.toString(), path).toFile();
-		if (file.exists()) return file;
-		
-		else throw new IOException("File does not exists at path: "+file.getAbsolutePath());
-	}
+        Files.createDirectories(path.resolve(folderName));
+    }
+    
+    public static void init() throws IOException {
+        Path configDir = geConfigDir();
+        Path musicFolder = configDir.resolve("music");
+        
+        if (Files.notExists(musicFolder)) {
+            createFolder("music", configDir);
+        }
+    }
+    
+    public static File getFile(String fileName) throws IOException {
+        Path musicDir = getMusicFolder();
+        File file = musicDir.resolve(fileName).toFile();
+        
+        if (file.exists()) return file;
+        else throw new IOException("File does not exist at path: " + file.getAbsolutePath());
+    }
     
     public static Path getMusicFolder() throws IOException {
         Path musicPath = geConfigDir().resolve("music");
@@ -48,16 +49,17 @@ public class FileManager {
         return musicPath;
     }
     
-    public static File[] getAllFilesFrom(Path path, FilenameFilter consumer) throws IOException {
+    public static File[] getAllFilesFrom(Path path, FilenameFilter filter) throws IOException {
         File folder = path.toFile();
         if (!folder.isDirectory()) throw new IOException("Not a directory: " + path);
         
-        return folder.listFiles(consumer);
+        return folder.listFiles(filter);
     }
+    
     public static File getRandomFileFrom(Path path, Collection<String> filter) throws IOException {
         File[] files = getAllFilesFrom(path, (dir, name) -> {
             int lastDot = name.lastIndexOf('.');
-            if (lastDot == -1) return false; // No extension
+            if (lastDot == -1) return false;
             String ext = name.substring(lastDot + 1).toLowerCase();
             return filter.contains(ext);
         });
@@ -70,4 +72,3 @@ public class FileManager {
         return files[index];
     }
 }
-
