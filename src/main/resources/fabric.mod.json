@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "startupmusicmod",
+  "version": "${version}",
+  "name": "Startup Musical Tone",
+  "description": "Plays music on startup",
+  "authors": ["MeroSsSany"],
+  "contact": {},
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.merosssany.musicaltone.StartupMusicalTone"
+    ]
+  },
+  "mixins": [
+    "startupmusicmod.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.14.22",
+    "minecraft": "1.19.2",
+    "java": "17"
+  }
+}

@@ -23,8 +23,6 @@ import net.minecraftforge.fml.event.lifecycle.FMLLoadCompleteEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.config.ModConfig;
 
-import static dev.merosssany.musicaltone.data.Config.CONFIG_SPEC;
-
 @Mod(StartupMusicalTone.modId)
 public class StartupMusicalTone {
     public static final String modId = "startupmusicmod";

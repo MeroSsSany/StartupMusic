@@ -1,4 +1,6 @@
 plugins {
+    // Note: Standard 'fabric-loom' is usually preferred over 'fabric-loom-remap'
+    // unless you have a specific multi-project remapping need.
     id 'fabric-loom' version '1.7-SNAPSHOT'
     id 'maven-publish'
     id 'com.github.johnrengelman.shadow' version '8.1.1'
@@ -7,53 +9,50 @@ plugins {
 version = project.mod_version
 group = project.mod_group_id
 
-loom {
-    // This tells Loom where to put the downloaded Minecraft jars
-    runs {
-        client {
-            client()
-            setConfigName("Minecraft Client")
-            ideConfigGenerated(true)
-            runDir("run")
-        }
-    }
-}
-
 base {
     archivesName = project.mod_id
 }
 
+// Custom configuration for embedding libraries
 configurations {
     shade
     implementation.extendsFrom shade
 }
 
-java {
-    toolchain.languageVersion = JavaLanguageVersion.of(17)
-    withSourcesJar()
-}
-
 repositories {
     mavenCentral()
-    // Fabric repository is added automatically by Loom
 }
 
+loom {
+    // 1.19.2 doesn't strictly require split source sets,
+    // but we can keep it if you want to organize Client code separately.
+    splitEnvironmentSourceSets()
+
+    mods {
+        "startupmusicmod" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+}
+
+println "Java: ${System.getProperty 'java.version'}, JVM: ${System.getProperty 'java.vm.version'} (${System.getProperty 'java.vendor'}), Arch: ${System.getProperty 'os.arch'}"
+
 dependencies {
-    // Fabric Loader and Minecraft
-    minecraft "com.mojang:minecraft:1.19.2"
-    mappings "net.fabricmc:yarn:1.19.2+build.28:v2" // Standard Yarn mappings
-    modImplementation "net.fabricmc:fabric-loader:0.14.22"
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
 
-    // Fabric API (Optional but recommended for most mods)
-    // modImplementation "net.fabricmc.fabric-api:fabric-api:0.76.0+1.19.2"
+    // Using Mojang Mappings as per your template
+    mappings loom.officialMojangMappings()
 
-    // Your Audio Libraries
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    // modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+    // Audio Libraries
     implementation "org.lwjgl:lwjgl-openal:3.2.3"
     implementation "org.lwjgl:lwjgl-stb:3.2.3"
 
-    // Shadowing JLayer
+    // JLayer for MP3 support - Added to 'shade' to embed it in the jar
     shade 'javazoom:jlayer:1.0.1'
-    implementation 'javazoom:jlayer:1.0.1'
 }
 
 processResources {
@@ -64,20 +63,40 @@ processResources {
     }
 }
 
+// Ensure we stay on Java 17 for 1.19.2
 tasks.withType(JavaCompile).configureEach {
     it.options.release = 17
 }
 
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+// Relocate JLayer to prevent conflicts with other mods
 shadowJar {
     configurations = [project.configurations.shade]
     archiveClassifier = 'shadow'
-
-    // Relocate to avoid conflicts with other mods using JLayer
     relocate 'javazoom.jl', 'dev.merosssany.musicaltone.libs.jl'
 }
 
-// Fabric Loom remaps the jar after shadowing
+// Remap the shadowed jar so it works in the production environment
 remapJar {
     dependsOn shadowJar
     inputFile = shadowJar.archiveFile
+}
+
+jar {
+    from("LICENSE") {
+        rename { "${it}_${project.archivesName}" }
+    }
+}
+
+publishing {
+    publications {
+        create("mavenJava", MavenPublication) {
+            from components.java
+        }
+    }
 }

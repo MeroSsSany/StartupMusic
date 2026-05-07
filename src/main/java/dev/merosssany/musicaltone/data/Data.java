@@ -52,8 +52,8 @@ public class Data {
         volume.clear();
         probability.clear();
         
-        getMap((List<String>) Config.volume.get(), volume);
-        getMap((List<String>) Config.probability.get(), probability);
+        getMap(Config.volume.get(), volume);
+        getMap(Config.probability.get(), probability);
         
         logger.info("Loaded {} tracks with volume, {} tracks with probability", volume.size(), probability.size());
     }
