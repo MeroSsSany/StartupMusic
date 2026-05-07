@@ -2,7 +2,6 @@ package dev.merosssany.musicaltone.data;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import dev.merosssany.musicaltone.StartupMusicalTone;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.File;

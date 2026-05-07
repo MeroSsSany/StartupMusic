@@ -2,10 +2,14 @@
   "schemaVersion": 1,
   "id": "startupmusicmod",
   "version": "${version}",
-  "name": "Startup Musical Tone",
+  "name": "Startup Music Tone",
   "description": "Plays music on startup",
-  "authors": ["MeroSsSany"],
-  "contact": {},
+  "authors": [
+    "MeroSsSany"
+  ],
+  "contact": {
+    "sources": "https://github.com/MeroSsSany/StartupMusic"
+  },
   "license": "MIT",
   "environment": "client",
   "entrypoints": {
@@ -18,7 +22,7 @@
   ],
   "depends": {
     "fabricloader": ">=0.14.22",
-    "minecraft": "1.19.2",
-    "java": "17"
+    "minecraft": ">=1.18.2 <=1.20.4",
+    "java": ">=17"
   }
 }
