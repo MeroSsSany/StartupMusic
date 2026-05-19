@@ -18,6 +18,20 @@ configurations {
     implementation.extendsFrom shade
 }
 
+sourceSets {
+    main { java { srcDir 'src/main/java' } }
+    v119 {
+        java { srcDir 'src/v119/java' }
+        compileClasspath += main.output + main.compileClasspath
+        runtimeClasspath += main.output + main.runtimeClasspath
+    }
+    v120 {
+        java { srcDir 'src/v120/java' }
+        compileClasspath += main.output + main.compileClasspath
+        runtimeClasspath += main.output + main.runtimeClasspath
+    }
+}
+
 // Mojang ships Java 17 to end users in 1.18+, so your mod should target Java 17.
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
@@ -91,8 +105,14 @@ minecraft {
         }
 
         client {
-            // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
             property 'forge.enabledGameTestNamespaces', mod_id
+
+            // Logic to pick the folder based on the current project version
+            if (minecraft_version == "1.19.2") {
+                mods { "${mod_id}" { source sourceSets.v119 } }
+            } else {
+                mods { "${mod_id}" { source sourceSets.v120 } }
+            }
         }
 
         server {
@@ -136,14 +156,10 @@ dependencies {
     // The "userdev" classifier will be requested and setup by ForgeGradle.
     // If the group id is "net.minecraft" and the artifact id is one of ["client", "server", "joined"],
     // then special handling is done to allow a setup of a vanilla dependency without the use of an external repository.
-    minecraft "net.minecraftforge:forge:1.19.2-43.4.16"
-    
-    implementation "org.lwjgl:lwjgl-openal:3.2.3"
-    implementation "org.lwjgl:lwjgl-stb:3.2.3"
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+
     implementation 'javazoom:jlayer:1.0.1'
-
     minecraftLibrary 'javazoom:jlayer:1.0.1'
-
     shade 'javazoom:jlayer:1.0.1'
 
     // Real mod deobf dependency examples - these get remapped to your current mappings
@@ -222,8 +238,7 @@ tasks.withType(JavaCompile).configureEach {
 
 shadowJar {
     configurations = [project.configurations.shade]
-
-    archiveClassifier.set('all')
+    archiveClassifier.set("mc${minecraft_version}")
 
     relocate 'javazoom.jl', 'dev.merosssany.musicaltone.libs.jl'
 

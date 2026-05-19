@@ -23,7 +23,7 @@ public class Data {
         try {
             path = FileManager.getMusicFolder();
         } catch (IOException e) {
-            path = FileManager.geConfigDir().resolve("music");
+            path = FileManager.getConfigDir().resolve("music");
         }
         musicFolder = path;
     }
@@ -48,12 +48,12 @@ public class Data {
         }
     }
     
-    public static void load() {
+    public static void load(List<String> volumeList, List<String> probabilityList) {
         volume.clear();
         probability.clear();
         
-        getMap((List<String>) Config.volume.get(), volume);
-        getMap((List<String>) Config.probability.get(), probability);
+        getMap(volumeList, volume);
+        getMap(probabilityList, probability);
         
         logger.info("Loaded {} tracks with volume, {} tracks with probability", volume.size(), probability.size());
     }

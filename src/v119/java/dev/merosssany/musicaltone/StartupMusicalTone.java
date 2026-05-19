@@ -2,10 +2,11 @@ package dev.merosssany.musicaltone;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import dev.merosssany.musicaltone.core.AudioThread;
 import dev.merosssany.musicaltone.data.AudioReader;
-import dev.merosssany.musicaltone.data.Config;
 import dev.merosssany.musicaltone.data.Data;
 import dev.merosssany.musicaltone.data.factory.DefaultFactories;
 import org.slf4j.Logger;
@@ -23,8 +24,6 @@ import net.minecraftforge.fml.event.lifecycle.FMLLoadCompleteEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.config.ModConfig;
 
-import static dev.merosssany.musicaltone.data.Config.CONFIG_SPEC;
-
 @Mod(StartupMusicalTone.modId)
 public class StartupMusicalTone {
     public static final String modId = "startupmusicmod";
@@ -34,13 +33,13 @@ public class StartupMusicalTone {
     private static AudioThread thread;
     
     public StartupMusicalTone(FMLJavaModLoadingContext context) {
-        context.registerConfig(ModConfig.Type.CLIENT, CONFIG_SPEC);
+        context.registerConfig(ModConfig.Type.CLIENT, Config.CONFIG_SPEC);
         DefaultFactories.register();
         
         thread = new AudioThread(new AudioPlayer());
         
         try {
-            FileManager.getRandomFileFrom(FileManager.getMusicFolder(), AudioReader.getSupportedFiles());
+            FileManager.getRandomFile(AudioReader.getSupportedFiles());
         } catch (IOException e) {
             showError(e);
             return;
@@ -55,7 +54,7 @@ public class StartupMusicalTone {
         
         try {
             if (trackKey == null || trackKey.isEmpty()) {
-                file = FileManager.getRandomFileFrom(FileManager.getMusicFolder(), AudioReader.getSupportedFiles());
+                file = FileManager.getRandomFile(AudioReader.getSupportedFiles());
                 // If it's a random file NOT in the config, use its actual name for volume lookup
                 trackKey = file.getName();
             } else {
@@ -136,5 +135,23 @@ public class StartupMusicalTone {
         } catch (Exception e) {
             showError(e);
         }
+    }
+    
+    public static List<String> getMusics() {
+        List<String> musics = new ArrayList<>();
+        
+        try {
+            File folder = FileManager.getMusicFolder().toFile();
+            if (folder.isDirectory()) {
+                for (File music : folder.listFiles()) {
+                    if (AudioReader.isSupported(music)) musics.add(music.getName());
+                }
+            }
+            
+        } catch (IOException e) {
+            logger.error(e.getMessage(),e);
+        }
+        
+        return musics;
     }
 }

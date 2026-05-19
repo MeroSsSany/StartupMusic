@@ -1,6 +1,6 @@
-package dev.merosssany.musicaltone.data;
+package dev.merosssany.musicaltone;
 
-import dev.merosssany.musicaltone.StartupMusicalTone;
+import dev.merosssany.musicaltone.data.Data;
 import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -77,8 +77,7 @@ public class Config {
     
     @SubscribeEvent
     public static void onLoad(ModConfigEvent e) {
-        Data.load();
-        
+        Data.load((List<String>) volume.get(), (List<String>) probability.get());
         StartupMusicalTone.startPlaying();
     }
 }

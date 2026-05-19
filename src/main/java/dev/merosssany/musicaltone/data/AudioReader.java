@@ -29,4 +29,15 @@ public class AudioReader {
     public static Set<String> getSupportedFiles() {
         return decoders.keySet();
     }
+    
+    public static boolean isSupported(File file) {
+        if (file.exists() && file.isFile()) {
+            String name = file.getName();
+            String[] dots = name.split("\\.");
+            String ext = dots[dots.length-1];
+            
+            return decoders.containsKey(ext);
+        }
+        return false;
+    }
 }

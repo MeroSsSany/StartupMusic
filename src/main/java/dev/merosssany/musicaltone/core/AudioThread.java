@@ -7,8 +7,6 @@ import java.io.File;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static dev.merosssany.musicaltone.StartupMusicalTone.showError;
-
 public class AudioThread extends Thread {
     private static final AtomicBoolean started = new AtomicBoolean();
     private static final AtomicBoolean end = new AtomicBoolean();
@@ -78,7 +76,6 @@ public class AudioThread extends Thread {
                 player.startStream(path);
             } catch (Exception e) {
                 logger.error("Failed to stream audio", e);
-                showError("Failed to stream audio", e);
             }
         });
     }
